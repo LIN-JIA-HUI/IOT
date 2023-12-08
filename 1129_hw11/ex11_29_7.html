@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Ping Pong</title>
+<script src="https://unpkg.com/@tensorflow/tfjs"></script>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<!-- The core Firebase JS SDK is always required and must be listed first -->
+<script src="https://www.gstatic.com/firebasejs/7.21.0/firebase-app.js"></script>
+
+<!-- TODO: Add SDKs for Firebase products that you want to use
+     https://firebase.google.com/docs/web/setup#available-libraries -->
+<script src="https://www.gstatic.com/firebasejs/7.21.0/firebase-analytics.js"></script>
+
+   
+<script src="https://www.gstatic.com/firebasejs/7.21.0/firebase-database.js"></script>
+<style>
+h1 {text-align: center;}
+
+
+</style>
+</head>
+
+<body> 
+<p>  
+</p>
+<div id="epf" style="width:100%;height:500px;"></div>
+<h1><div id="status" style="center" ></div></h1>
+
+<script>
+   
+/* 
+   
+function Normalize(array) {
+  let Normalizedarray=[];
+  const max = Math.max(...array);
+  const min = Math.min(...array);
+  Normalizedarray = array.map(function (val) { return 2*(val-min)/(max-min)-1; });
+ 
+
+  
+  return  Normalizedarray  ;
+} 
+
+
+async function loadmodel(){
+   
+   //加載模型
+   //model =  await tf.loadLayersModel('indexeddb://my-model-ping-pong-3000');
+   model =  await tf.loadLayersModel('indexeddb://my-model-heart');
+      //model =  await tf.loadModel('tfjsversion/model.json');
+   model.summary();
+    
+
+   
+} 
+loadmodel();  //呼叫載入模型函數
+
+*/
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyAFZfAUZmumSkprtspY3mRMVcEudpvGhD0",
+    authDomain: "totoras-57d56.firebaseapp.com",
+    projectId: "totoras-57d56",
+    storageBucket: "totoras-57d56.appspot.com",
+    messagingSenderId: "570004486299",
+    appId: "1:570004486299:web:2b18fccc486a9f40786e3e",
+    measurementId: "G-BKDVDY97D6"
+  };
+  
+  
+  
+  
+  
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  firebase.analytics();
+  
+
+  firebase.database().ref("plotdata").on('value', function (snapshot) {
+    console.log(snapshot.val());
+	var result=snapshot.val();
+	var coo= Object.values(result);
+	var objlen=Object.keys(result).length;
+	
+	console.log(coo[objlen-1].data);
+	var Dataarray=[];
+	var timearray=[];
+	for (i=6;i>0; i--)
+	{
+	     Dataarray.push(coo[objlen-i].data);
+		 timearray.push(coo[objlen-i].time);
+	}
+	console.log(timearray);
+	
+	var ExpP = document.getElementById("epf");
+    //plot
+	
+	var layout = {
+     title: 'Temperature Curve',
+    xaxis: {
+    title: 'time'
+    },
+    yaxis: {
+     title: 'Temp (Celsius)'
+    }
+  };
+
+
+	Plotly.newPlot( ExpP, [{
+    x: timearray,
+    y: Dataarray,
+    marker: {
+    color: 'DodgerBlue'
+    } }], layout );
+	
+	
+  /*
+	
+  var   inputtensor = tf.tensor([Normalize(Dataarray)]);
+  inputtensor.print();  
+  var   prediction = model.predict(inputtensor);
+  prediction.print();  
+	//	console.log(Array.from(prediction.dataSync())); 
+//	    console.log(prediction.dataSync()); //返回张量所包含的所有值的一维数组
+        // argmax will return embeddingL 0, 1 or 2, we need -1, 0 or 1 (left, no move, right) - decrement it and return
+        // also we actually need to flip that prediction, as ai plays on top (upside-down)
+        //return -(tf.argMax(prediction, 1).dataSync()-1);
+ // var   result = tf.argMax(prediction, 1).dataSync();  
+  var result =tf.argMax(prediction, 1).dataSync();
+  console.log(result);
+ if((result-1)<0)
+   {
+      document.getElementById("status").style.color="green";
+	  document.getElementById("status").innerHTML ="Unstable";
+	
+   }
+   else
+   {
+     document.getElementById("status").style.color="green";
+	 document.getElementById("status").innerHTML ="Stable";
+   }
+  
+   
+	inputtensor.dispose();
+	prediction.dispose();
+	
+	
+	*/
+	
+});
+
+
+  console.log("OK");
+   
+</script>
+</body>
+</html>

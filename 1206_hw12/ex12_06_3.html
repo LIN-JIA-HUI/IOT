@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+   
+<head>
+  <title>Time Series</title>
+    
+  <meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@0.13.3/dist/tf.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-1.2.0.min.js"></script>
+  
+</head>
+
+<body>
+	
+	<h1>  Time Series Prediction  </h1> 
+	<table width="100%">
+	   <tr><td width="30%"><form class="md-form">
+      <div class="file-field">
+        <div class="btn btn-primary btn-sm float-left">
+              <span>select *.csv data file</span>
+        <input type="file" id="input-data">
+       </div>
+      </div>
+  </form></td> 
+       <td><button  id="onTrainClickbt" type="button" >Train</button><hr/></td>
+	   <td><button  id="onPredictClickbt" type="button" >Predict</button><hr/></td>
+	   <td><button  id="SaveClickbt" type="button"  >Save</button><hr/></td>
+	   <td><input   id="inputfilename" value="model-prediction-test" ></input><hr/></td>
+	   
+	   <td><button  id="Loadbt"  type="button"  >Load</button><hr/></td></tr>   
+	   
+	   </table>
+  
+       <div id="graph" style="height:300px;"></div>
+
+<script>
+   
+    var data_raw = []; 
+    document.getElementById('input-data').addEventListener('change', readInputFile, false);
+     
+
+ 
+ 
+   
+   function readInputFile(e) {
+      data_raw=[];
+      var file = e.target.files[0];
+      var reader = new FileReader();
+      reader.onload = function(e) {
+          var contents = e.target.result;
+    //      document.getElementById("input-data").value = "";
+          
+	      console.log(contents);
+          parseCSVData(contents);
+      };
+      reader.readAsText(file);
+   } 
+   function parseCSVData(contents) {
+      
+      var rows = contents.split("\n");
+	
+      console.log(rows); 
+	   
+	
+      for (var  i = 1; i < rows.length-1; i++) {
+         var cols = rows[i].split(",");
+         console.log(cols); 
+         data_raw.push({ id: cols[0], timestamp: cols[1], price: cols[2] });
+    
+	}
+      console.log(data_raw); 
+      var timestamps_A = data_raw.map(function (val) { return val['timestamp']; });
+    
+      var prices = data_raw.map(function (val) { return val['price']; });
+	//  console.log(prices);
+      var graph_plot = document.getElementById('graph');
+	  Plotly.newPlot( graph_plot, [{ x: timestamps_A, y: prices, name: "Series" }], { margin: { t: 0 } } );
+       
+   }
+   
+    const onTrainClickbutton = document.getElementById('onTrainClickbt');
+ 
+    onTrainClickbutton.addEventListener('click', async () => {
+     onTrainClick();
+});
+   
+     var data_vec=[];
+    const window_size=3;   
+   
+  
+   const n_percent=90; //90%
+   const max = 600 ;
+   var  model = tf.sequential();
+   
+  function setupmodel1()
+   {
+     
+ 	
+     model.add(tf.layers.lstm({ units: 20, inputShape: [window_size,1], returnSequences: true }));
+      output = tf.layers.lstm({ units: 20, returnSequences: false });
+    model.add(output);
+	model.add(tf.layers.dense({units: 1}));
+	
+   }
+   
+    function setupmodel2()
+   {
+    
+      
+  	model.add(tf.layers.conv1d({
+    inputShape: [window_size,1], //[3,1]
+	filters: 8,
+    kernelSize: 3,
+	padding: 'same',
+  //  activation: 'relu',
+}));
+	model.add(tf.layers.flatten());
+ 
+    model.add(tf.layers.dense({units: 100}));
+ 
+    model.add(tf.layers.reshape({targetShape: [10,10]}));
+
+	hidden1 = tf.layers.lstm({ units:20, inputShape: [10,10], returnSequences: true });
+    model.add(hidden1); //2nd lstm layer 
+    output = tf.layers.lstm({ units: 20, returnSequences: false });
+    model.add(output);
+    model.add(tf.layers.dense({units: 1, inputShape: [20]}));
+	
+
+   }
+   
+    function Preparedataset(time_s, window_size)
+   {
+      var r_avgs = [];
+	  console.log(time_s);
+      for (let i = 0; i < time_s.length - window_size; i++)
+      {
+           
+          r_avgs.push({ set: time_s.slice(i, i + window_size), nextvalue: time_s[i + window_size]['price'] });
+          
+      }
+	  console.log("r_avgs");
+      console.log(r_avgs);
+      return r_avgs;
+   }
+    async function onTrainClick() {
+	
+	 //   setupmodel();
+	  setupmodel2();
+	  model.summary();
+      data_vec = Preparedataset(data_raw, window_size);
+	  console.log(data_vec);
+      var inputs = data_vec.map(function(inp_f) {
+          return inp_f['set'].map(function(val) { return val['price']; })});
+      console.log(inputs);
+	  
+      var outputs = data_vec.map(function(outp_f) { return outp_f['nextvalue']; });
+      console.log(outputs);
+	  
+     
+     
+
+  
+	await trainModel(inputs, outputs, n_percent);
+
+      alert('Your model has been successfully trained...');
+   }
+ 
+   async function trainModel(inputs, outputs, n_size)
+{
+   var callback = function(epoch, log) {
+      
+		 console.log(epoch);
+		 console.log(log.loss); 
+      }
+  
+    inputs = inputs.slice(0, Math.floor(n_size / 100 * inputs.length));
+	
+    outputs = outputs.slice(0, Math.floor(n_size / 100 * outputs.length));
+   
+    const xs = tf.tensor2d(inputs, [inputs.length, inputs[0].length]).reshape([inputs.length, inputs[0].length,1]).div(tf.scalar(max));
+    const ys = tf.tensor2d(outputs, [outputs.length, 1]).reshape([outputs.length, 1]).div(tf.scalar(max));
+	xs.print();
+	
+	
+	const learning_rate=0.0001;
+    const opt_adam = tf.train.adam(learning_rate);
+    model.compile({ optimizer: opt_adam, loss: 'meanSquaredError',metrics: ['accuracy']});
+	
+
+    const hist = await model.fit(xs, ys,
+   { batchSize: 5, epochs: 100, callbacks: {
+     onEpochEnd: async (epoch, log) => { callback(epoch, log); }}});
+     
+	 xs.dispose();  //釋放記憶體
+     
+     ys.dispose();             //釋放記憶體
+
+
+}
+
+
+ const onPredictClickbutton = document.getElementById('onPredictClickbt');
+  onPredictClickbutton.addEventListener('click', async () => {
+      onPredictClick();
+   }); 
+///
+ async function onPredictClick() {
+ data_vec = Preparedataset(data_raw, window_size);
+	     
+	 var inputs = data_vec.map(function(inp_f) {
+ return inp_f['set'].map(function (val) { return val['price']; }); });
+       var nextvalue = data_vec.map(function (val) { return val['nextvalue']; });
+      var prices = data_raw.map(function (val) { return val['price']; });
+	  
+//var pred_vals = await Predict(inputs,nextvalue, n_percent);
+
+var pred_vals = await Predict(inputs, n_percent);
+ console.log(pred_vals);
+
+      var timestamps_a = data_raw.map(function (val) { return val['timestamp']; });
+      var timestamps_b = data_raw.map(function (val) {
+ return val['timestamp']; }).splice(window_size, data_raw.length);
+
+      var timestamps_c = data_raw.map(function (val) {
+ return val['timestamp']; }).splice(window_size + Math.floor(n_percent / 100 * nextvalue.length), data_raw.length);
+
+   
+      var graph_plot = document.getElementById('graph');
+      Plotly.newPlot( graph_plot, [{ x: timestamps_a, y: prices, name: "Series" }], { margin: { t: 0 } } );
+      Plotly.plot( graph_plot, [{ x: timestamps_b, y: nextvalue, name: "nextvalue" }], { margin: { t: 0 } } );
+      Plotly.plot( graph_plot, [{ x: timestamps_c, y: pred_vals, name: "Predicted" }], { margin: { t: 0 } } );
+   } 
+   
+ // async function Predict(inputs,nextvalue, n_size)
+  async function Predict(inputs, n_size)
+   
+   {
+    var inps = inputs.slice(Math.floor(n_size / 100 * inputs.length), inputs.length);
+ /*   var label= nextvalue.slice(Math.floor(n_size / 100 * nextvalue.length), nextvalue.length);
+    console.log(label);
+	var labels=tf.tensor2d(label, [label.length, 1]).reshape([label.length, 1]).div(tf.scalar(max));
+	labels.transpose().print();
+  */
+  
+  const outps = model.predict(tf.tensor2d(inps, [inps.length, inps[0].length]).div(tf.scalar(max)).reshape([inps.length, inps[0].length,1])).mul(max);
+  
+ //   outps.div(tf.scalar(max)).transpose().print();
+ /*const result = await tf.metrics.meanAbsoluteError(labels.transpose(), outps.div(tf.scalar(max)).transpose());
+result.print();
+ */
+   var returnpredict= Array.from(outps.dataSync());
+    outps.dispose();  //釋放記憶體
+   
+    return returnpredict;
+   }
+
+
+const SaveClickbutton = document.getElementById('SaveClickbt');
+SaveClickbutton.addEventListener('click', async () => {
+  SaveClick();
+}); 
+
+async function SaveClick() {
+//const LOCAL_MODEL_URL = 'downloads://my-model-time-series-prediction-window3';
+//const LOCAL_MODEL_URL = 'localstorage://my-model-2-10';
+ // const LOCAL_MODEL_URL = 'indexeddb://my-model-time-series-prediction-window3';
+const LOCAL_MODEL_URL = "indexeddb://"+document.getElementById("inputfilename").value;
+console.log(LOCAL_MODEL_URL);
+const saveResult = await model.save(LOCAL_MODEL_URL);
+console.log(await tf.io.listModels());
+  
+}
+
+const Loadbutton = document.getElementById('Loadbt');
+Loadbutton.addEventListener('click', async () => {
+  LoadClick();
+}); 
+
+async function LoadClick() {
+ const LOCAL_MODEL_URL = "indexeddb://"+document.getElementById("inputfilename").value;
+ console.log(LOCAL_MODEL_URL);
+
+ model = await tf.loadModel(LOCAL_MODEL_URL);
+ model.summary();
+
+
+}
+
+ </script>
+
+
+</body>
+
+
+
+</html>
