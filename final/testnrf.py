@@ -1,7 +1,8 @@
 import asyncio
 from bleak import BleakClient, BleakGATTCharacteristic
 
-char_uuid = "00000007-0000-3512-2118-0009af100700"
+# char_uuid = "00000007-0000-3512-2118-0009af100700"
+char_uuid = "00002a37-0000-1000-8000-00805f9b34fb"
 
 async def callback(sender: BleakGATTCharacteristic, data: bytearray):
     print(f"{sender}: {data}")
